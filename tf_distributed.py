@@ -3,43 +3,17 @@ import sys
 
 import tensorflow as tf
 
+from model import mlp
+from dataset import load_data
+from utils import calc_metric
+
 slim = tf.contrib.slim
 
 FLAGS = None
 INPUT_DIM = 784
 OUTPUT_DIM = 10
-
-
-def mlp(X,
-        output_dim,
-        is_training,
-        fc_channel,
-        reg_lambda,
-        dropout_keep_prob,
-        name="mlp"):
-    """Build Model
-    User can modify codes below
-
-    """
-    with tf.variable_scope(name):
-        with slim.arg_scope([slim.fully_connected],
-                            activation_fn=tf.nn.relu,
-                            weights_initializer=tf.random_normal_initializer(),
-                            weights_regularizer=slim.l2_regularizer(reg_lambda)):
-
-            h = slim.fully_connected(X, fc_channel, scope='fc/fc_1')
-            h = slim.dropout(h, dropout_keep_prob, is_training=is_training, scope='fc/dropout')
-            logits = slim.fully_connected(h, output_dim, activation_fn=None, scope='fc/fc_2')
-
-    return logits
-
-
-def calc_metric(Y, Y_pred, name=None):
-    with tf.variable_scope(name or 'metric'):
-        correct_prediction = tf.equal(
-            tf.argmax(Y_pred, 1), tf.argmax(Y, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float64))
-    return accuracy, correct_prediction
+BATCH_SIZE = 64
+N_EPOCH = 5
 
 
 def main(_):
@@ -53,10 +27,16 @@ def main(_):
     server = tf.train.Server(cluster,
                              job_name=FLAGS.job_name,
                              task_index=FLAGS.task_index)
+    # Parameters 
 
     if FLAGS.job_name == "ps":
         server.join()
     elif FLAGS.job_name == "worker":
+
+        (X_train,
+         Y_train,
+         X_valid,
+         Y_valid) = load_data()
 
         # Assigns ops to the local worker by default.
         with tf.device(tf.train.replica_device_setter(
@@ -64,21 +44,37 @@ def main(_):
                 cluster=cluster)):
 
             # Build model...
-            X = tf.placeholder(dtype=tf.float32,
-                               shape=[None, INPUT_DIM],
-                               name="X")
-            Y = tf.placeholder(dtype=tf.float32,
-                               shape=[None, OUTPUT_DIM],
-                               name="Y")
+            # Datasets
+            train_X_dataset = tf.data.Dataset.from_tensor_slices(X_train)
+            train_Y_dataset = tf.data.Dataset.from_tensor_slices(Y_train)
+            train_dataset = tf.data.Dataset.zip((train_X_dataset, train_Y_dataset))
+            train_dataset = train_dataset.shuffle(1000).batch(BATCH_SIZE).repeat(N_EPOCH)
 
+            valid_X_dataset = tf.data.Dataset.from_tensor_slices(X_valid)
+            valid_Y_dataset = tf.data.Dataset.from_tensor_slices(Y_valid)
+            valid_dataset = tf.data.Dataset.zip((valid_X_dataset, valid_Y_dataset))
+            valid_dataset = valid_dataset.shuffle(1000).batch(BATCH_SIZE)
+
+            # Feedable Iterator
+            handle = tf.placeholder(tf.string, shape=[])
+            iterator = tf.data.Iterator.from_string_handle(
+                handle, train_dataset.output_types, train_dataset.output_shapes)
+
+            # Iterators 
+            train_iterator = train_dataset.make_one_shot_iterator()
+            # valid_iterator = valid_dataset.make_initializable_iterator()
+
+            X, Y = iterator.get_next()
             is_training = tf.placeholder_with_default(False,
                                                       shape=None,
                                                       name="is_training")
+
+            global_step = tf.contrib.framework.get_or_create_global_step()
                                
             logits = mlp(X=X,
                          output_dim=OUTPUT_DIM,
                          is_training=is_training,
-                         fc_channel=128,
+                         fc_channel=[128, 64],
                          reg_lambda=0.,
                          dropout_keep_prob=0.8)
 
@@ -87,9 +83,7 @@ def main(_):
             loss = slim.losses.softmax_cross_entropy(logits, Y)
             accuracy, correct = calc_metric(Y, Y_pred)
 
-            global_step = tf.contrib.framework.get_or_create_global_step()
-
-            train_op = tf.train.AdagradOptimizer(0.01).minimize(
+            train_op = tf.train.AdamOptimizer(0.01).minimize(
                 loss, global_step=global_step)
 
         # The StopAtStepHook handles stopping after running given steps.
@@ -103,13 +97,20 @@ def main(_):
                                                    FLAGS.task_index == 0),
                                                checkpoint_dir="/tmp/train_logs",
                                                hooks=hooks) as mon_sess:
+
+            # @sess
+            train_handle = mon_sess.run(train_iterator.string_handle())
+            # valid_handle = mon_sess.run(valid_iterator.string_handle())
+
             while not mon_sess.should_stop():
                 # Run a training step asynchronously.
                 # See `tf.train.SyncReplicasOptimizer` for additional details on how to
                 # perform *synchronous* training.
                 # mon_sess.run handles AbortedError in case of preempted PS.
-                mon_sess.run(train_op)
-
+                accuracy, _ = mon_sess.run([accuracy, train_op],
+                                           feed_dict={is_training: is_training,
+                                                      handle: train_handle, })
+                print("accuracy : {}".format(accuracy))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
