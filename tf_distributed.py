@@ -113,10 +113,11 @@ def main(_):
                 # See `tf.train.SyncReplicasOptimizer` for additional details on how to
                 # perform *synchronous* training.
                 # mon_sess.run handles AbortedError in case of preempted PS.
-                accuracy, _ = mon_sess.run([accuracy, train_op],
-                                           feed_dict={is_training: True,
-                                                      handle: train_handle, })
-                print("accuracy : {}".format(accuracy))
+                train_accuracy, _ = mon_sess.run([accuracy, train_op],
+                                                 feed_dict={is_training: True,
+                                                            handle: train_handle, })
+                print("accuracy : {}".format(train_accuracy))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
