@@ -18,7 +18,7 @@ CHECKPOINT_DIR = "./tmp/logs"
 BEST_MODEL_DIR_PATH = "./tmp/logs/best_model"
 SAVED_MODEL_PATH = "./tmp/logs/saved_model"
 
-DATASET_SHUFFLE_BUFFER_SIZE = 1000
+DATASET_SHUFFLE_BUFFER_SIZE = 80000
 
 
 def main(_):
