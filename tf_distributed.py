@@ -10,7 +10,6 @@ from utils import calc_metric
 slim = tf.contrib.slim
 
 FLAGS = None
-INPUT_DIM = 784
 OUTPUT_DIM = 10
 BATCH_SIZE = 64
 N_EPOCH = 5
@@ -38,6 +37,8 @@ def main(_):
          Y_train,
          X_valid,
          Y_valid) = load_data()
+
+        # output_dim = len(Y_train[0]) 
 
         # Assigns ops to the local worker by default.
         with tf.device(tf.train.replica_device_setter(
@@ -88,7 +89,7 @@ def main(_):
             train_op = tf.train.AdamOptimizer(0.01).minimize(
                 loss, global_step=global_step)
 
-            init_op = tf.global_variables_initializer()
+            # init_op = tf.global_variables_initializer()
 
         # The StopAtStepHook handles stopping after running given steps.
         hooks = [tf.train.StopAtStepHook(last_step=1000000)]
@@ -106,7 +107,7 @@ def main(_):
             train_handle = mon_sess.run(train_handle_tensor)
             # valid_handle = mon_sess.run(valid_iterator.string_handle())
 
-            mon_sess.run(init_op)
+            # mon_sess.run(init_op)
 
             while not mon_sess.should_stop():
                 # Run a training step asynchronously.
