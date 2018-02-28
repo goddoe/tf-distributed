@@ -14,8 +14,8 @@ slim = tf.contrib.slim
 
 FLAGS = None
 
-VERBOSE_INTERVAL = 1000  # by batch
-TRAIN_METRIC_WINDOW = 1000
+VERBOSE_INTERVAL = 100  # by batch
+TRAIN_METRIC_WINDOW = 100
 CHECKPOINT_DIR = "./tmp/logs"
 SAVED_MODEL_PATH = "./tmp/logs/saved_model"
 
@@ -47,6 +47,10 @@ def main(_):
          Y_valid) = load_data()
             
         # Inference output dimension
+        print("X_train shape: {}".format(X_train.shape))
+        print("Y_train shape: {}".format(Y_train.shape))
+        print("X_valid shape: {}".format(X_valid.shape))
+        print("Y_valid shape: {}".format(Y_valid.shape))
         output_dim = len(Y_train[0]) 
 
         # check chief
