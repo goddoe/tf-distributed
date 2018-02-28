@@ -5,7 +5,10 @@ import tensorflow as tf
 
 from model import mlp
 from dataset import load_data
-from utils import calc_metric, load_json
+from utils import (calc_metric,
+                   load_json,
+                   save_with_saved_model)
+
 
 slim = tf.contrib.slim
 
@@ -14,6 +17,7 @@ FLAGS = None
 VERBOSE_INTERVAL = 1000  # by batch
 TRAIN_METRIC_WINDOW = 1000
 CHECKPOINT_DIR = "./tmp/logs"
+SAVED_MODEL_PATH = "./tmp/logs/saved_model"
 
 DATASET_SHUFFLE_BUFFER_SIZE = 1000
 
@@ -169,7 +173,7 @@ def main(_):
 
             # Export Model
             if is_chief:
-
+                save_with_saved_model(mon_sess, X, Y_pred, SAVED_MODEL_PATH)
 
 
 if __name__ == "__main__":
