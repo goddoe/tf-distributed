@@ -149,7 +149,7 @@ def main(_):
                         valid_accuracy = valid_correct/valid_num
 
                         print("recent_mean_train_accuracy : {}".format(recent_mean_train_accuracy))
-                        print("valid_accuracy : {}".format(valid_accuracy)
+                        print("valid_accuracy : {}".format(valid_accuracy))
 
                 batch_i += 1
 
