@@ -11,8 +11,11 @@ slim = tf.contrib.slim
 
 FLAGS = None
 
-VERBOSE_INTERVAL = 10  # by batch
-TRAIN_METRIC_WINDOW = 10
+VERBOSE_INTERVAL = 1000  # by batch
+TRAIN_METRIC_WINDOW = 1000
+CHECKPOINT_DIR = "./tmp/logs"
+
+DATASET_SHUFFLE_BUFFER_SIZE = 1000
 
 
 def main(_):
@@ -55,13 +58,13 @@ def main(_):
             train_X_dataset = tf.data.Dataset.from_tensor_slices(X_train)
             train_Y_dataset = tf.data.Dataset.from_tensor_slices(Y_train)
             train_dataset = tf.data.Dataset.zip((train_X_dataset, train_Y_dataset))
-            train_dataset = train_dataset.shuffle(1000).batch(param_dict['batch_size']).repeat(param_dict['n_epoch'])
+            train_dataset = train_dataset.shuffle(DATASET_SHUFFLE_BUFFER_SIZE).batch(param_dict['batch_size']).repeat(param_dict['n_epoch'])
 
             if is_chief:
                 valid_X_dataset = tf.data.Dataset.from_tensor_slices(X_valid)
                 valid_Y_dataset = tf.data.Dataset.from_tensor_slices(Y_valid)
                 valid_dataset = tf.data.Dataset.zip((valid_X_dataset, valid_Y_dataset))
-                valid_dataset = valid_dataset.shuffle(1000).batch(param_dict['batch_size'])
+                valid_dataset = valid_dataset.shuffle(DATASET_SHUFFLE_BUFFER_SIZE).batch(param_dict['batch_size'])
 
             # Feedable Iterator
             handle = tf.placeholder(tf.string, shape=[])
@@ -93,19 +96,20 @@ def main(_):
             loss = slim.losses.softmax_cross_entropy(logits, Y)
             accuracy, correct = calc_metric(Y, Y_pred)
 
-            train_op = tf.train.AdamOptimizer(0.01).minimize(
+            train_op = tf.train.AdamOptimizer(param_dict['learning_rate']).minimize(
                 loss, global_step=global_step)
 
         # The StopAtStepHook handles stopping after running given steps.
-        hooks = [tf.train.StopAtStepHook(last_step=1000000)]
+        # hooks = [tf.train.StopAtStepHook(last_step=1000000)]
 
         # The MonitoredTrainingSession takes care of session initialization,
         # restoring from a checkpoint, saving to a checkpoint, and closing when done
         # or an error occurs.
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
-                                               checkpoint_dir="/tmp/train_logs",
-                                               hooks=hooks) as mon_sess:
+                                               checkpoint_dir=CHECKPOINT_DIR,
+                                               # hooks=hooks
+                                               ) as mon_sess:
 
             # Get dataset handle
             train_handle = mon_sess.run(train_handle_tensor)
@@ -162,6 +166,10 @@ def main(_):
                         print("valid_loss : {}".format(valid_loss))
 
                 batch_i += 1
+
+            # Export Model
+            if is_chief:
+
 
 
 if __name__ == "__main__":
