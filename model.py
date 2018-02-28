@@ -20,7 +20,7 @@ def mlp(X,
                             activation_fn=tf.nn.relu,
                             weights_initializer=tf.random_normal_initializer(),
                             weights_regularizer=slim.l2_regularizer(reg_lambda)):
-            h = slim.flatten(X)
+            h = tf.reshape(X, shape=[-1, 784])
             h = slim.fully_connected(h, fc_channel[0], scope='fc/fc_1')
             h = slim.dropout(h, dropout_keep_prob,
                              is_training=is_training, scope='fc/fc_1/dropout')

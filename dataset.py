@@ -6,11 +6,11 @@ def load_data():
     # load mnist data set
     train_data, valid_data = tf.keras.datasets.mnist.load_data()
 
-    mean = np.mean(train_data[0], axis=0)
-    std = np.std(train_data[0], axis=0)
+    mean = np.mean(train_data[0].astype(np.float32), axis=0) + 1e-6
+    std = np.std(train_data[0].astype(np.float32), axis=0) + 1e-6
 
     def normalize(data):
-        return (data - mean)/std
+        return (data.astype(np.float32) + 1e-6 - mean)/std
 
     X_train = normalize(train_data[0]).astype(np.float32)
     Y_train = tf.keras.utils.to_categorical(train_data[1]).astype(np.float32)

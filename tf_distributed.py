@@ -33,6 +33,7 @@ def main(_):
         server.join()
     elif FLAGS.job_name == "worker":
 
+        # Load Data
         (X_train,
          Y_train,
          X_valid,
@@ -63,6 +64,7 @@ def main(_):
             # Iterators 
             train_iterator = train_dataset.make_one_shot_iterator()
             # valid_iterator = valid_dataset.make_initializable_iterator()
+            train_handle_tensor = train_iterator.string_handle()
 
             X, Y = iterator.get_next()
             is_training = tf.placeholder_with_default(False,
@@ -98,8 +100,8 @@ def main(_):
                                                checkpoint_dir="/tmp/train_logs",
                                                hooks=hooks) as mon_sess:
 
-            # @sess
-            train_handle = mon_sess.run(train_iterator.string_handle())
+            # Get dataset handle
+            train_handle = mon_sess.run(train_handle_tensor)
             # valid_handle = mon_sess.run(valid_iterator.string_handle())
 
             while not mon_sess.should_stop():
@@ -108,7 +110,7 @@ def main(_):
                 # perform *synchronous* training.
                 # mon_sess.run handles AbortedError in case of preempted PS.
                 accuracy, _ = mon_sess.run([accuracy, train_op],
-                                           feed_dict={is_training: is_training,
+                                           feed_dict={is_training: True,
                                                       handle: train_handle, })
                 print("accuracy : {}".format(accuracy))
 
