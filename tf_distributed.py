@@ -138,7 +138,7 @@ def main(_):
 
                         while True:
                             try:
-                                pred, batch_valid_correct = mon_sess.run([Y_pred, correct] 
+                                pred, batch_valid_correct = mon_sess.run([Y_pred, correct],
                                                                          feed_dict={is_training: False,
                                                                                     handle: valid_handle, })
                                 valid_correct += batch_valid_correct
