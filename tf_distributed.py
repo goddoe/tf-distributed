@@ -12,7 +12,7 @@ slim = tf.contrib.slim
 FLAGS = None
 
 VERBOSE_INTERVAL = 10  # by batch
-TRAIN_ACC_WINDOW_SIZE = 10
+TRAIN_METRIC_WINDOW = 10
 
 
 def main(_):
@@ -111,7 +111,8 @@ def main(_):
             train_handle = mon_sess.run(train_handle_tensor)
             valid_handle = mon_sess.run(valid_handle_tensor)
 
-            acc_window = [0.]*TRAIN_ACC_WINDOW_SIZE
+            acc_window = [0.]*TRAIN_METRIC_WINDOW
+            loss_window = [0.]*TRAIN_METRIC_WINDOW
             
             batch_i = 0
             while not mon_sess.should_stop():
@@ -123,33 +124,45 @@ def main(_):
                              feed_dict={is_training: True,
                                         handle: train_handle, })
                 if is_chief:
-                    train_accuracy = mon_sess.run(accuracy,
+                    train_accuracy, train_loss = mon_sess.run([accuracy, loss],
                                                   feed_dict={is_training: False,
                                                              handle: train_handle, })
                     acc_window = acc_window[1:] + [train_accuracy]
+                    loss_window = loss_window[1:] + [train_loss]
 
                     if batch_i % VERBOSE_INTERVAL == 0:
                         recent_mean_train_accuracy = sum(acc_window)/len(acc_window)
+                        recent_mean_train_loss = sum(loss_window)/len(loss_window)
 
                         valid_i = 0 
-                        mon_sess.run(valid_iterator.initializer)
                         valid_correct = 0 
-                        valid_num = 0
+                        valid_loss = 0 
+                        valid_total_num = 0
 
+                        mon_sess.run(valid_iterator.initializer)
                         while True:
                             try:
-                                pred, batch_valid_correct = mon_sess.run([Y_pred, correct],
-                                                                         feed_dict={is_training: False,
-                                                                                    handle: valid_handle, })
+                                (batch_Y_pred,
+                                 batch_valid_correct,
+                                 batch_valid_loss) = mon_sess.run([Y_pred, correct, loss],
+                                                                  feed_dict={is_training: False,
+                                                                             handle: valid_handle, })
+                                curr_batch_num = batch_Y_pred.shape[0]
+
                                 valid_correct += batch_valid_correct.sum()
-                                valid_num += pred.shape[0]
+                                valid_loss += loss * curr_batch_num 
+                                valid_total_num += curr_batch_num
                                 valid_i += 1
                             except tf.errors.OutOfRangeError:
                                 break
-                        valid_accuracy = valid_correct/valid_num
-
+                        valid_accuracy = valid_correct/valid_total_num
+                        valid_loss = valid_loss/valid_total_num
+                    
+                        print("-"*30)
                         print("recent_mean_train_accuracy : {}".format(recent_mean_train_accuracy))
+                        print("recent_mean_train_loss : {}".format(recent_mean_train_loss))
                         print("valid_accuracy : {}".format(valid_accuracy))
+                        print("valid_loss : {}".format(valid_loss))
 
                 batch_i += 1
 
