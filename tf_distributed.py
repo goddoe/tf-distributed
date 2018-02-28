@@ -88,6 +88,8 @@ def main(_):
             train_op = tf.train.AdamOptimizer(0.01).minimize(
                 loss, global_step=global_step)
 
+            init_op = tf.global_variables_initializer()
+
         # The StopAtStepHook handles stopping after running given steps.
         hooks = [tf.train.StopAtStepHook(last_step=1000000)]
 
@@ -103,6 +105,8 @@ def main(_):
             # Get dataset handle
             train_handle = mon_sess.run(train_handle_tensor)
             # valid_handle = mon_sess.run(valid_iterator.string_handle())
+
+            mon_sess.run(init_op)
 
             while not mon_sess.should_stop():
                 # Run a training step asynchronously.
