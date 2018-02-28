@@ -141,7 +141,7 @@ def main(_):
                                 pred, batch_valid_correct = mon_sess.run([Y_pred, correct],
                                                                          feed_dict={is_training: False,
                                                                                     handle: valid_handle, })
-                                valid_correct += batch_valid_correct
+                                valid_correct += batch_valid_correct.sum()
                                 valid_num += pred.shape[0]
                                 valid_i += 1
                             except tf.errors.OutOfRangeError:
