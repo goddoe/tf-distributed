@@ -79,7 +79,7 @@ def main(_):
                          is_training=is_training,
                          fc_channel=[256, 256],
                          reg_lambda=0.,
-                         dropout_keep_prob=0.8)
+                         dropout_keep_prob=1.)
 
             Y_pred = slim.softmax(logits)
 
