@@ -8,8 +8,6 @@ from dataset import load_data
 from utils import (calc_metric,
                    load_json,
                    save_with_saved_model)
-
-
 slim = tf.contrib.slim
 
 FLAGS = None
@@ -17,6 +15,7 @@ FLAGS = None
 VERBOSE_INTERVAL = 100  # by batch
 TRAIN_METRIC_WINDOW = 100
 CHECKPOINT_DIR = "./tmp/logs"
+BEST_MODEL_DIR_PATH = "./tmp/logs/best_model"
 SAVED_MODEL_PATH = "./tmp/logs/saved_model"
 
 DATASET_SHUFFLE_BUFFER_SIZE = 1000
@@ -33,7 +32,7 @@ def main(_):
     server = tf.train.Server(cluster,
                              job_name=FLAGS.job_name,
                              task_index=FLAGS.task_index)
-    # Parameters 
+    # Parameters
     param_dict = load_json(FLAGS.param_path)
 
     if FLAGS.job_name == "ps":
@@ -45,15 +44,17 @@ def main(_):
          Y_train,
          X_valid,
          Y_valid) = load_data()
-            
-        # Inference output dimension
+        print("=" * 30)
         print("X_train shape: {}".format(X_train.shape))
         print("Y_train shape: {}".format(Y_train.shape))
         print("X_valid shape: {}".format(X_valid.shape))
         print("Y_valid shape: {}".format(Y_valid.shape))
-        output_dim = len(Y_train[0]) 
+        print("=" * 30)
 
-        # check chief
+        # Inference output dimension
+        output_dim = len(Y_train[0])
+
+        # Check is_chief
         is_chief = FLAGS.task_index == 0
 
         # Assigns ops to the local worker by default.
@@ -65,21 +66,25 @@ def main(_):
             # Datasets
             train_X_dataset = tf.data.Dataset.from_tensor_slices(X_train)
             train_Y_dataset = tf.data.Dataset.from_tensor_slices(Y_train)
-            train_dataset = tf.data.Dataset.zip((train_X_dataset, train_Y_dataset))
-            train_dataset = train_dataset.shuffle(DATASET_SHUFFLE_BUFFER_SIZE).batch(param_dict['batch_size']).repeat(param_dict['n_epoch'])
+            train_dataset = tf.data.Dataset.zip(
+                (train_X_dataset, train_Y_dataset))
+            train_dataset = train_dataset.shuffle(DATASET_SHUFFLE_BUFFER_SIZE).batch(
+                param_dict['batch_size']).repeat(param_dict['n_epoch'])
 
             if is_chief:
                 valid_X_dataset = tf.data.Dataset.from_tensor_slices(X_valid)
                 valid_Y_dataset = tf.data.Dataset.from_tensor_slices(Y_valid)
-                valid_dataset = tf.data.Dataset.zip((valid_X_dataset, valid_Y_dataset))
-                valid_dataset = valid_dataset.shuffle(DATASET_SHUFFLE_BUFFER_SIZE).batch(param_dict['batch_size'])
+                valid_dataset = tf.data.Dataset.zip(
+                    (valid_X_dataset, valid_Y_dataset))
+                valid_dataset = valid_dataset.shuffle(
+                    DATASET_SHUFFLE_BUFFER_SIZE).batch(param_dict['batch_size'])
 
             # Feedable Iterator
             handle = tf.placeholder(tf.string, shape=[])
             iterator = tf.data.Iterator.from_string_handle(
                 handle, train_dataset.output_types, train_dataset.output_shapes)
 
-            # Iterators 
+            # Iterators
             train_iterator = train_dataset.make_one_shot_iterator()
             train_handle_tensor = train_iterator.string_handle()
 
@@ -93,7 +98,7 @@ def main(_):
                                                       name="is_training")
 
             global_step = tf.contrib.framework.get_or_create_global_step()
-                               
+
             logits = mlp(X=X,
                          output_dim=output_dim,
                          is_training=is_training,
@@ -123,9 +128,10 @@ def main(_):
             train_handle = mon_sess.run(train_handle_tensor)
             valid_handle = mon_sess.run(valid_handle_tensor)
 
-            acc_window = [0.]*TRAIN_METRIC_WINDOW
-            loss_window = [0.]*TRAIN_METRIC_WINDOW
-            
+            # Metric window
+            acc_window = [0.] * TRAIN_METRIC_WINDOW
+            loss_window = [0.] * TRAIN_METRIC_WINDOW
+
             batch_i = 0
             while not mon_sess.should_stop():
                 # Run a training step asynchronously.
@@ -134,18 +140,20 @@ def main(_):
                                         handle: train_handle, })
                 if is_chief:
                     train_accuracy, train_loss = mon_sess.run([accuracy, loss],
-                                                  feed_dict={is_training: False,
-                                                             handle: train_handle, })
+                                                              feed_dict={is_training: False,
+                                                                         handle: train_handle, })
                     acc_window = acc_window[1:] + [train_accuracy]
                     loss_window = loss_window[1:] + [train_loss]
 
                     if batch_i % VERBOSE_INTERVAL == 0:
-                        recent_mean_train_accuracy = sum(acc_window)/len(acc_window)
-                        recent_mean_train_loss = sum(loss_window)/len(loss_window)
+                        recent_mean_train_accuracy = sum(
+                            acc_window) / len(acc_window)
+                        recent_mean_train_loss = sum(
+                            loss_window) / len(loss_window)
 
-                        valid_i = 0 
-                        valid_correct = 0 
-                        valid_loss = 0 
+                        valid_i = 0
+                        valid_correct = 0
+                        valid_loss = 0
                         valid_total_num = 0
 
                         mon_sess.run(valid_iterator.initializer)
@@ -156,20 +164,21 @@ def main(_):
                                  batch_valid_loss) = mon_sess.run([Y_pred, correct, loss],
                                                                   feed_dict={is_training: False,
                                                                              handle: valid_handle, })
-                                curr_batch_num = batch_Y_pred.shape[0]
-
+                                curr_batch_num = batch_Y_pred.shape[0] 
                                 valid_correct += batch_valid_correct.sum()
-                                valid_loss += batch_valid_loss * curr_batch_num 
+                                valid_loss += batch_valid_loss * curr_batch_num
                                 valid_total_num += curr_batch_num
                                 valid_i += 1
                             except tf.errors.OutOfRangeError:
                                 break
-                        valid_accuracy = valid_correct/valid_total_num
-                        valid_loss = valid_loss/valid_total_num
-                    
-                        print("-"*30)
-                        print("recent_mean_train_accuracy : {}".format(recent_mean_train_accuracy))
-                        print("recent_mean_train_loss : {}".format(recent_mean_train_loss))
+                        valid_accuracy = valid_correct / valid_total_num
+                        valid_loss = valid_loss / valid_total_num
+
+                        print("-" * 30)
+                        print("recent_mean_train_accuracy : {}".format(
+                            recent_mean_train_accuracy))
+                        print("recent_mean_train_loss : {}".format(
+                            recent_mean_train_loss))
                         print("valid_accuracy : {}".format(valid_accuracy))
                         print("valid_loss : {}".format(valid_loss))
 
@@ -213,7 +222,7 @@ if __name__ == "__main__":
         "--param_path",
         type=str,
         default="./param.json",
-        help="parameters of model"
+        help="Parameters of model"
     )
 
     FLAGS, unparsed = parser.parse_known_args()
