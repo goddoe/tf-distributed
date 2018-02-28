@@ -1,11 +1,10 @@
 {
     "batch_size": 64,
     "n_epoch": 5,
+    "learning_rate": 0.01,
     "model_param":{
         "fc_channel":[256, 128],
         "dropout_keep_prob": 0.8,
         "reg_lambda": 0.0,
-        "learning_rate": 0.01
-
     }
 }
