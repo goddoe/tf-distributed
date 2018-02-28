@@ -117,9 +117,6 @@ def main(_):
             batch_i = 0
             while not mon_sess.should_stop():
                 # Run a training step asynchronously.
-                # See `tf.train.SyncReplicasOptimizer` for additional details on how to
-                # perform *synchronous* training.
-                # mon_sess.run handles AbortedError in case of preempted PS.
                 mon_sess.run(train_op,
                              feed_dict={is_training: True,
                                         handle: train_handle, })
@@ -150,7 +147,7 @@ def main(_):
                                 curr_batch_num = batch_Y_pred.shape[0]
 
                                 valid_correct += batch_valid_correct.sum()
-                                valid_loss += loss * curr_batch_num 
+                                valid_loss += batch_valid_loss * curr_batch_num 
                                 valid_total_num += curr_batch_num
                                 valid_i += 1
                             except tf.errors.OutOfRangeError:
