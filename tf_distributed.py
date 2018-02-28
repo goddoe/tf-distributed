@@ -76,7 +76,7 @@ def main(_):
             logits = mlp(X=X,
                          output_dim=OUTPUT_DIM,
                          is_training=is_training,
-                         fc_channel=[128, 64],
+                         fc_channel=[256, 256],
                          reg_lambda=0.,
                          dropout_keep_prob=0.8)
 
