@@ -31,3 +31,6 @@ def mlp(X,
                 h, output_dim, activation_fn=None, scope='logits')
 
     return logits
+
+
+model_f = mlp

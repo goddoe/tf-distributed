@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf
 
 from model import mlp
-from dataset import load_data
+from dataset import read_data
 from utils import (calc_metric,
                    load_json,
                    save_with_saved_model)
@@ -14,36 +14,52 @@ FLAGS = None
 
 VERBOSE_INTERVAL = 100  # by batch
 TRAIN_METRIC_WINDOW = 100
-CHECKPOINT_DIR = "./tmp/logs"
 BEST_MODEL_DIR_PATH = "./tmp/logs/best_model"
-SAVED_MODEL_PATH = "./tmp/logs/saved_model"
 
 DATASET_SHUFFLE_BUFFER_SIZE = 80000
 
 
-def main(_):
-    ps_hosts = FLAGS.ps_hosts.split(",")
-    worker_hosts = FLAGS.worker_hosts.split(",")
+def run_train(ps_hosts,
+              worker_hosts,
+              job_name,
+              task_index,
+              model_f,
+              data_path,
+              output_path,
+              param_path):
+
+    # ======================================
+    # Variables
+    checkpoint_dir = "{}/logs".format(output_path)
+    saved_model_path = "{}/model/model".format(output_path)
+
+    ps_hosts = ps_hosts.split(",")
+    worker_hosts = worker_hosts.split(",")
+
+    param_dict = load_json(param_path)
 
     # Create a cluster from the parameter server and worker hosts.
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
     # Create and start a server for the local task.
     server = tf.train.Server(cluster,
-                             job_name=FLAGS.job_name,
-                             task_index=FLAGS.task_index)
-    # Parameters
-    param_dict = load_json(FLAGS.param_path)
+                             job_name=job_name,
+                             task_index=task_index)
 
-    if FLAGS.job_name == "ps":
+    if job_name == "ps":
         server.join()
-    elif FLAGS.job_name == "worker":
+    elif job_name == "worker":
 
         # Load Data
         (X_train,
          Y_train,
          X_valid,
-         Y_valid) = load_data()
+         Y_valid,
+         _,
+         _) = read_data(data_path,
+                        param_dict['train_ratio'],
+                        param_dict['valid_ratio'])
+
         print("=" * 30)
         print("X_train shape: {}".format(X_train.shape))
         print("Y_train shape: {}".format(Y_train.shape))
@@ -55,11 +71,11 @@ def main(_):
         output_dim = len(Y_train[0])
 
         # Check is_chief
-        is_chief = FLAGS.task_index == 0
+        is_chief = task_index == 0
 
         # Assigns ops to the local worker by default.
         with tf.device(tf.train.replica_device_setter(
-                worker_device="/job:worker/task:%d" % FLAGS.task_index,
+                worker_device="/job:worker/task:%d" % task_index,
                 cluster=cluster)):
 
             # Build model...
@@ -120,7 +136,7 @@ def main(_):
         # or an error occurs.
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
-                                               checkpoint_dir=CHECKPOINT_DIR,
+                                               checkpoint_dir=checkpoint_dir,
                                                # hooks=hooks
                                                ) as mon_sess:
 
@@ -186,7 +202,7 @@ def main(_):
 
             # Export Model
             if is_chief:
-                save_with_saved_model(mon_sess, X, Y_pred, SAVED_MODEL_PATH)
+                save_with_saved_model(mon_sess, X, Y_pred, saved_model_path)
 
 
 if __name__ == "__main__":

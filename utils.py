@@ -19,6 +19,11 @@ def makedirs(path):
     return True
 
 
+def print_kwargs(**kwargs):
+    for key, val in kwargs.items():
+        print("{}: {}".format(key, val))
+
+
 # tf utils
 
 def calc_metric(Y, Y_pred, name=None):
