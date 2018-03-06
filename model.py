@@ -13,14 +13,17 @@ def mlp(X,
         name="mlp"):
     """Build Model
     User can modify codes below
-
     """
+
     with tf.variable_scope(name):
         with slim.arg_scope([slim.fully_connected],
                             activation_fn=tf.nn.relu,
                             weights_initializer=tf.random_normal_initializer(),
                             weights_regularizer=slim.l2_regularizer(reg_lambda)):
             h = slim.flatten(X)
+            print("="*30)
+            print(fc_channel[0])
+            print("="*30)
             h = slim.fully_connected(h, fc_channel[0], scope='fc/fc_1')
             h = slim.dropout(h, dropout_keep_prob,
                              is_training=is_training, scope='fc/fc_1/dropout')

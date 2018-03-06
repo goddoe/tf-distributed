@@ -1,3 +1,4 @@
+import os
 import argparse
 import sys
 
@@ -7,16 +8,15 @@ from model import mlp
 from dataset import read_data
 from utils import (calc_metric,
                    load_json,
-                   save_with_saved_model)
+                   build_saved_model_graph,
+                   export_saved_model,
+                   makedirs)
 slim = tf.contrib.slim
 
-FLAGS = None
+VERBOSE_INTERVAL = 10  # by batch
+TRAIN_METRIC_WINDOW = 10
 
-VERBOSE_INTERVAL = 100  # by batch
-TRAIN_METRIC_WINDOW = 100
-BEST_MODEL_DIR_PATH = "./tmp/logs/best_model"
-
-DATASET_SHUFFLE_BUFFER_SIZE = 80000
+DATASET_SHUFFLE_BUFFER_SIZE = 800
 
 
 def run_train(ps_hosts,
@@ -108,25 +108,33 @@ def run_train(ps_hosts,
                 valid_iterator = valid_dataset.make_initializable_iterator()
                 valid_handle_tensor = valid_iterator.string_handle()
 
-            X, Y = iterator.get_next()
-            is_training = tf.placeholder_with_default(False,
-                                                      shape=None,
-                                                      name="is_training")
+            with tf.variable_scope("model"):
+                X, Y = iterator.get_next()
+                is_training = tf.placeholder_with_default(False,
+                                                          shape=None,
+                                                          name="is_training")
 
-            global_step = tf.contrib.framework.get_or_create_global_step()
+                global_step = tf.contrib.framework.get_or_create_global_step()
 
-            logits = mlp(X=X,
-                         output_dim=output_dim,
-                         is_training=is_training,
-                         **param_dict['model_param'])
+                logits = mlp(X=X,
+                             output_dim=output_dim,
+                             is_training=is_training,
+                             **param_dict['model_param'])
 
-            Y_pred = slim.softmax(logits)
+                Y_pred = slim.softmax(logits)
 
-            loss = slim.losses.softmax_cross_entropy(logits, Y)
-            accuracy, correct = calc_metric(Y, Y_pred)
+                loss = slim.losses.softmax_cross_entropy(logits, Y)
+                accuracy, correct = calc_metric(Y, Y_pred)
 
-            train_op = tf.train.AdamOptimizer(param_dict['learning_rate']).minimize(
-                loss, global_step=global_step)
+                train_op = tf.train.AdamOptimizer(param_dict['learning_rate']).minimize(
+                    loss, global_step=global_step)
+
+                tf.add_to_collection('X', X)
+                tf.add_to_collection('Y_pred', Y_pred)
+
+                #saved_model_tensor_dict = build_saved_model_graph(X,
+                #                                                  Y_pred,
+                #                                                  saved_model_path)
 
         # The StopAtStepHook handles stopping after running given steps.
         # hooks = [tf.train.StopAtStepHook(last_step=1000000)]
@@ -137,7 +145,7 @@ def run_train(ps_hosts,
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
                                                checkpoint_dir=checkpoint_dir,
-                                               # hooks=hooks
+                                               # hooks=hooks,
                                                ) as mon_sess:
 
             # Get dataset handle
@@ -199,7 +207,3 @@ def run_train(ps_hosts,
                         print("valid_loss : {}".format(valid_loss))
 
                 batch_i += 1
-
-            # Export Model
-            if is_chief:
-                save_with_saved_model(mon_sess, X, Y_pred, saved_model_path)

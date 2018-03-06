@@ -34,35 +34,79 @@ def calc_metric(Y, Y_pred, name=None):
     return accuracy, correct_prediction
 
 
+def build_saved_model_graph(X, Y_pred, path):
+    """Description
+
+    Args:
+        path: save path
+    """
+
+    saved_model_tensor_dict = {}
+    if not os.path.exists(os.path.dirname(path)):
+        makedirs(os.path.dirname(path))
+    try:
+        builder = tf.saved_model.builder.SavedModelBuilder(path)
+        tensor_info_X = tf.saved_model.utils.build_tensor_info(X)
+        tensor_info_Y = tf.saved_model.utils.build_tensor_info(Y_pred)
+
+        prediction_signature = (
+            tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={'X': tensor_info_X},
+                outputs={'Y_pred': tensor_info_Y},
+                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+
+        init = tf.tables_initializer()
+
+        legacy_init_op = tf.group(
+            init, name='legacy_init_op')
+
+        saved_model_tensor_dict = {
+            "builder": builder,
+            "prediction_signature": prediction_signature,
+            "init": init,
+            "legacy_init_op": legacy_init_op}
+
+    except Exception as e:
+        raise Exception("Error in save_with_saved_model: {}".format(str(e)))
+    
+    return saved_model_tensor_dict
+
+
+def export_saved_model(sess, saved_model_tensor_dict):
+    s = saved_model_tensor_dict
+
+    s['builder'].add_meta_graph_and_variables(
+        sess, [tf.saved_model.tag_constants.SERVING],
+        signature_def_map={'predict': s['prediction_signature']},
+        legacy_init_op=s['legacy_init_op'])
+    
+    s['builder'].save()
+
+
 def save_with_saved_model(sess, X, Y_pred, path):
-        """Description
+    if not os.path.exists(os.path.dirname(path)):
+        makedirs(os.path.dirname(path))
+    try:
+        builder = tf.saved_model.builder.SavedModelBuilder(path)
+        tensor_info_X = tf.saved_model.utils.build_tensor_info(X)
+        tensor_info_Y = tf.saved_model.utils.build_tensor_info(Y_pred)
 
-        Args:
-            path: save path
-        """
-        if not os.path.exists(os.path.dirname(path)):
-            makedirs(os.path.dirname(path))
-        try:
-            builder = tf.saved_model.builder.SavedModelBuilder(path)
-            tensor_info_X = tf.saved_model.utils.build_tensor_info(X)
-            tensor_info_Y = tf.saved_model.utils.build_tensor_info(Y_pred)
+        prediction_signature = (
+            tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={'X': tensor_info_X},
+                outputs={'Y_pred': tensor_info_Y},
+                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
 
-            prediction_signature = (
-                tf.saved_model.signature_def_utils.build_signature_def(
-                    inputs={'X': tensor_info_X},
-                    outputs={'Y_pred': tensor_info_Y},
-                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+        init = tf.tables_initializer()
+        legacy_init_op = tf.group(
+            init, name='legacy_init_op')
 
-            init = tf.tables_initializer()
-            legacy_init_op = tf.group(
-                init, name='legacy_init_op')
+        builder.add_meta_graph_and_variables(
+            sess, [tf.saved_model.tag_constants.SERVING],
+            signature_def_map={'predict': prediction_signature},
+            legacy_init_op=legacy_init_op)
+        builder.save()
+    except Exception as e:
+        raise Exception("Error in save_with_saved_model: {}".format(str(e)))
 
-            builder.add_meta_graph_and_variables(
-                sess, [tf.saved_model.tag_constants.SERVING],
-                signature_def_map={'predict': prediction_signature},
-                legacy_init_op=legacy_init_op)
-            builder.save()
-        except Exception as e:
-            raise Exception("Error in save_with_saved_model: {}".format(str(e)))
-
-        return sess
+    return sess

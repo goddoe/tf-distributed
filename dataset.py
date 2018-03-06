@@ -38,6 +38,16 @@ def read_data(data_path, train_ratio, valid_ratio):
     X_test = X_all[train_data_num + valid_data_num:]
     Y_test = Y_all[train_data_num + valid_data_num:]
 
+    mean = np.mean(X_train.astype(np.float32), axis=0) + 1e-6
+    std = np.std(X_train.astype(np.float32), axis=0) + 1e-6
+
+    def normalize(data):
+        return (data.astype(np.float32) + 1e-6 - mean)/std
+
+    X_train = normalize(X_train)
+    X_valid = normalize(X_valid)
+    X_test = normalize(X_test)
+
     input_dim = len(X_train[0])
     print_kwargs(input_dim=input_dim,
                  output_dim=n_class,
@@ -48,7 +58,13 @@ def read_data(data_path, train_ratio, valid_ratio):
                  X_test=np.shape(X_test),
                  Y_test=np.shape(Y_test))
 
-    return X_train, Y_train, X_valid, Y_valid, X_test, Y_test
+
+    return (X_train.astype(np.float32),
+            Y_train.astype(np.float32),
+            X_valid.astype(np.float32),
+            Y_valid.astype(np.float32),
+            X_test.astype(np.float32),
+            Y_test.astype(np.float32))
 
 
 def read_data_2(data_path, train_ratio, valid_ratio):
