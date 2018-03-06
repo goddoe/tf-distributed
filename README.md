@@ -1,4 +1,4 @@
-# Example of Distributed Tensorflow
+# Distributed Training Framework with Tensorflow
 
 - - -
 
