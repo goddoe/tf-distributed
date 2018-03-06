@@ -3,7 +3,7 @@
 
 ## Run Example
 Traing MLP with titanic dataset.
-The running script is supposed to runing parameter server and worker server in single machine.
+The running script is supposed to runing parameter server and worker server at the same single machine.
 Change the shell script with your environments.
 
 

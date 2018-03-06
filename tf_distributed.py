@@ -1,16 +1,10 @@
-import os
-import argparse
-import sys
 
 import tensorflow as tf
 
 from model import mlp
 from dataset import read_data
 from utils import (calc_metric,
-                   load_json,
-                   build_saved_model_graph,
-                   export_saved_model,
-                   makedirs)
+                   load_json)
 slim = tf.contrib.slim
 
 VERBOSE_INTERVAL = 10  # by batch
@@ -31,7 +25,6 @@ def run_train(ps_hosts,
     # ======================================
     # Variables
     checkpoint_dir = "{}/logs".format(output_path)
-    saved_model_path = "{}/model/model".format(output_path)
 
     ps_hosts = ps_hosts.split(",")
     worker_hosts = worker_hosts.split(",")

@@ -1,12 +1,30 @@
+import argparse
+
 import tensorflow as tf
 from utils import save_with_saved_model
 
+parser = argparse.ArgumentParser(description='Make deploy model.')
+parser.add_argument(
+    "--model_path",
+    type=str,
+    default="",
+    help="path of model")
+
+parser.add_argument(
+    "--deploy_model_path",
+    type=str,
+    default="",
+    help="path of saved model")
+
+p = parser.parse_args()
+
+
 # Input
-model_path = "./output/logs/model.ckpt-120"
+model_path = p.model_path
 graph_path = "{}.meta".format(model_path)
 
 # Output
-export_saved_model_path = "./output/logs/deploy"
+deploy_model_path = p.deploy_model_path
 
 # Main
 print("="*30)
@@ -22,9 +40,9 @@ Y_pred = tf.get_collection('Y_pred')[0]
 save_with_saved_model(sess=sess,
                       X=X,
                       Y_pred=Y_pred,
-                      path=export_saved_model_path)
+                      path=deploy_model_path)
 
 print("*"*30)
-print("export_saved_model_path: {}".format(export_saved_model_path))
+print("deploy_model_path: {}".format(deploy_model_path))
 print("export model done.")
 print("*"*30)
