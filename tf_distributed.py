@@ -24,8 +24,6 @@ def run_train(ps_hosts,
 
     # ======================================
     # Variables
-    checkpoint_dir = "{}/logs".format(output_path)
-
     ps_hosts = ps_hosts.split(",")
     worker_hosts = worker_hosts.split(",")
 
@@ -101,29 +99,28 @@ def run_train(ps_hosts,
                 valid_iterator = valid_dataset.make_initializable_iterator()
                 valid_handle_tensor = valid_iterator.string_handle()
 
-            with tf.variable_scope("model"):
-                X, Y = iterator.get_next()
-                is_training = tf.placeholder_with_default(False,
-                                                          shape=None,
-                                                          name="is_training")
+            X, Y = iterator.get_next()
+            is_training = tf.placeholder_with_default(False,
+                                                      shape=None,
+                                                      name="is_training")
 
-                global_step = tf.contrib.framework.get_or_create_global_step()
+            global_step = tf.contrib.framework.get_or_create_global_step()
 
-                logits = mlp(X=X,
-                             output_dim=output_dim,
-                             is_training=is_training,
-                             **param_dict['model_param'])
+            logits = mlp(X=X,
+                         output_dim=output_dim,
+                         is_training=is_training,
+                         **param_dict['model_param'])
 
-                Y_pred = slim.softmax(logits)
+            Y_pred = slim.softmax(logits)
 
-                loss = slim.losses.softmax_cross_entropy(logits, Y)
-                accuracy, correct = calc_metric(Y, Y_pred)
+            loss = slim.losses.softmax_cross_entropy(logits, Y)
+            accuracy, correct = calc_metric(Y, Y_pred)
 
-                train_op = tf.train.AdamOptimizer(param_dict['learning_rate']).minimize(
-                    loss, global_step=global_step)
+            train_op = tf.train.AdamOptimizer(param_dict['learning_rate']).minimize(
+                loss, global_step=global_step)
 
-                tf.add_to_collection('X', X)
-                tf.add_to_collection('Y_pred', Y_pred)
+            tf.add_to_collection('X', X)
+            tf.add_to_collection('Y_pred', Y_pred)
 
                 #saved_model_tensor_dict = build_saved_model_graph(X,
                 #                                                  Y_pred,
@@ -137,7 +134,7 @@ def run_train(ps_hosts,
         # or an error occurs.
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
-                                               checkpoint_dir=checkpoint_dir,
+                                               checkpoint_dir=output_path,
                                                # hooks=hooks,
                                                ) as mon_sess:
 
