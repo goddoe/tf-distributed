@@ -10,8 +10,6 @@ slim = tf.contrib.slim
 VERBOSE_INTERVAL = 10  # by batch
 TRAIN_METRIC_WINDOW = 10
 
-DATASET_SHUFFLE_BUFFER_SIZE = 800
-
 
 def run_train(ps_hosts,
               worker_hosts,
@@ -75,7 +73,7 @@ def run_train(ps_hosts,
             train_Y_dataset = tf.data.Dataset.from_tensor_slices(Y_train)
             train_dataset = tf.data.Dataset.zip(
                 (train_X_dataset, train_Y_dataset))
-            train_dataset = train_dataset.shuffle(DATASET_SHUFFLE_BUFFER_SIZE).batch(
+            train_dataset = train_dataset.shuffle(param_dict['dataset_shuffle_buffer_size']).batch(
                 param_dict['batch_size']).repeat(param_dict['n_epoch'])
 
             if is_chief:
@@ -84,7 +82,7 @@ def run_train(ps_hosts,
                 valid_dataset = tf.data.Dataset.zip(
                     (valid_X_dataset, valid_Y_dataset))
                 valid_dataset = valid_dataset.shuffle(
-                    DATASET_SHUFFLE_BUFFER_SIZE).batch(param_dict['batch_size'])
+                    param_dict['dataset_shuffle_buffer_size']).batch(param_dict['batch_size'])
 
             # Feedable Iterator
             handle = tf.placeholder(tf.string, shape=[])
